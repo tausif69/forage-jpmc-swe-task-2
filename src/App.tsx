@@ -14,60 +14,66 @@ interface IState {
  * The parent element of the react app.
  * It renders title, button and Graph react element.
  */
-class App extends Component<{}, IState> {
+import React from 'react';
+import PerspectiveViewer from '@finos/perspective-viewer';
+import '@finos/perspective-viewer/dist/umd/material.css';
+import './App.css';
+
+interface IState {
+  data: any[];
+  showGraph: boolean;
+}
+
+class App extends React.Component<{}, IState> {
   constructor(props: {}) {
     super(props);
-
     this.state = {
-      // data saves the server responds.
-      // We use this state to parse data down to the child element (Graph) as element property
       data: [],
+      showGraph: false,
     };
   }
 
-  /**
-   * Render Graph react component with state.data parse as property data
-   */
-  renderGraph() {
-    return (<Graph data={this.state.data}/>)
+  componentDidMount() {
+    this.getDataFromServer();
   }
 
-  /**
-   * Get new data from server and update the state with the new data
-   */
-  getDataFromServer() {
-    DataStreamer.getData((serverResponds: ServerRespond[]) => {
-      // Update the state by creating a new array of data that consists of
-      // Previous data in the state and the new data from server
-      this.setState({ data: [...this.state.data, ...serverResponds] });
-    });
-  }
+  getDataFromServer = () => {
+    fetch('http://localhost:8080/data')
+      .then(response => response.json())
+      .then(data => {
+        this.setState({ data });
+        setTimeout(this.getDataFromServer, 1000);
+      });
+  };
 
-  /**
-   * Render the App react component
-   */
+  startStreamingData = () => {
+    this.setState({ showGraph: true });
+  };
+
+  renderGraph = () => {
+    if (this.state.showGraph) {
+      return (
+        <PerspectiveViewer
+          className="perspective-viewer"
+          view="y_line"
+          row-pivots='["timestamp"]'
+          column-pivots='["stock"]'
+          columns='["top_ask_price"]'
+          aggregates='{"stock":"distinct count","top_ask_price":"avg","top_bid_price":"avg"}'
+          data={this.state.data}
+        />
+      );
+    }
+  };
+
   render() {
     return (
       <div className="App">
-        <header className="App-header">
-          Bank & Merge Co Task 2
-        </header>
-        <div className="App-content">
-          <button className="btn btn-primary Stream-button"
-            // when button is click, our react app tries to request
-            // new data from the server.
-            // As part of your task, update the getDataFromServer() function
-            // to keep requesting the data every 100ms until the app is closed
-            // or the server does not return anymore data.
-            onClick={() => {this.getDataFromServer()}}>
-            Start Streaming Data
-          </button>
-          <div className="Graph">
-            {this.renderGraph()}
-          </div>
-        </div>
+        <h1>Stocks App</h1>
+        <button onClick={this.startStreamingData}>Start Streaming Data</button>
+        {this.renderGraph()}
       </div>
-    )
+    );
   }
 }
 
